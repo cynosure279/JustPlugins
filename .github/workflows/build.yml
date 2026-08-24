@@ -105,7 +105,7 @@ jobs:
     steps:
       - name: Install build tools
         run: |
-          apk add --no-cache git meson ninja cmake pkgconf python3 py3-pip
+          apk add --no-cache git meson ninja cmake pkgconf python3 py3-pip build-base gcc musl-dev
 
       - name: Checkout JustPlugins
         uses: actions/checkout@v4
