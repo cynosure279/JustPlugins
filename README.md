@@ -108,6 +108,92 @@ GitHub Actions 自动构建：
 4. Meson 构建
 5. 上传构建产物
 
+### 多平台 CI
+
+| 平台 | 容器 | 状态 |
+|------|------|------|
+| Debian Trixie | `debian:trixie` | GNOME 47+ 完整构建 |
+| Alpine Edge | `alpine:edge` | postmarketOS 基础环境 |
+
+### 发布流程
+
+1. 打 tag：`git tag v0.1.0 && git push origin v0.1.0`
+2. Release workflow 自动生成 overlay tarball 并创建 GitHub Release
+3. 下载 APKBUILD + overlay tarball，在 Alpine/pmOS 上 `abuild -r` 构建
+
+## 在 postmarketOS / Alpine 上安装
+
+### 方式一：APKBUILD 构建（推荐）
+
+```bash
+# 克隆仓库
+ git clone https://github.com/cynosure279/JustPlugins.git
+cd JustPlugins/apkbuild
+
+# 方法 A：使用 GitHub Release 的 overlay tarball
+# 确保 APKBUILD 中的 _overlayver 和 sha512sums 与 Release 版本匹配
+abuild -r
+
+# 方法 B：本地生成 overlay tarball
+cd ..
+bash scripts/make-overlay.sh 0.1.0
+# 将生成的 dist/justplugins-overlay-0.1.0.tar.gz 放到 ~/packages/ 下
+cd apkbuild
+abuild -r
+
+# 安装
+sudo apk add --allow-untrusted ../$(uname -m)/phosh-justplugins-*.apk
+
+# 重启 Phosh
+sudo rc-service phosh restart  # OpenRC
+# 或
+systemctl --user restart phosh  # systemd
+```
+
+### 方式二：pmbootstrap（postmarketOS 开发者）
+
+```bash
+# 将 apkbuild/ 作为本地 pmaports overlay
+pmbootstrap init
+# 选择你的设备，然后在 pmaports 中添加本地包
+
+# 或手动构建
+pmbootstrap build phosh-justplugins
+pmbootstrap install phosh-justplugins
+```
+
+### APKBUILD 说明
+
+| 字段 | 值 | 说明 |
+|------|-----|------|
+| `pkgname` | `phosh-justplugins` | 替换 phosh 的 overlay 包 |
+| `provides` | `phosh=$pkgver` | 满足 phosh 依赖 |
+| `conflicts` | `phosh` | 不能与原版共存 |
+| `source` | phosh tarball + overlay tarball | 双源构建 |
+| `makedepends` | 与 Alpine phosh 一致 | 使用 Alpine 包名 |
+
+## 文件结构
+
+```
+JustPlugins/
+├── src/                          # 源码（提交到 Phosh PR）
+│   ├── plugin-info.c/h           # 插件元数据解析
+│   ├── plugin-manager.c/h         # 插件管理器（GSettings 读写）
+│   ├── plugin-manager-page.c/h    # UI 页面
+│   ├── quick-settings.c           # 修改的 Phosh 文件
+│   ├── ui/                        # GTK 模板
+│   ├── meson.build               # 修改的构建文件
+│   └── phosh.gresources.xml      # 修改的资源文件
+├── apkbuild/
+│   └── APKBUILD                  # Alpine/postmarketOS 打包文件
+├── scripts/
+│   └── make-overlay.sh           # overlay tarball 生成脚本
+├── .github/workflows/
+│   ├── build.yml                 # CI 构建 (Debian + Alpine)
+│   └── release.yml               # 发布 (tag 触发)
+└── plan.md                       # 设计文档
+```
+
 ## 许可证
 
 GPL-3.0-or-later (与 Phosh 一致)

@@ -95,6 +95,69 @@ jobs:
             phosh/${{ env.BUILD_DIR }}/plugins/**/*.so
           retention-days: 7
 
+  # Build on Alpine Linux (postmarketOS base)
+  build-alpine:
+    name: Build (Alpine Edge)
+    runs-on: ubuntu-24.04
+    container:
+      image: alpine:edge
+
+    steps:
+      - name: Install build tools
+        run: |
+          apk add --no-cache git meson ninja cmake pkgconf python3 py3-pip
+
+      - name: Checkout JustPlugins
+        uses: actions/checkout@v4
+        with:
+          path: justplugins
+
+      - name: Install phosh build dependencies
+        run: |
+          # Enable community repo (phosh is in community)
+          echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+          apk update
+          apk add --no-cache \
+            callaudiod-dev elogind-dev evince-dev evolution-data-server-dev \
+            feedbackd-dev gcr-dev gettext-dev glib-dev gmobile-dev \
+            gnome-bluetooth-dev gnome-desktop-dev gtk+3.0-dev libadwaita-dev \
+            libgudev-dev libhandy1-dev libsecret-dev linux-pam-dev \
+            modemmanager-dev networkmanager-dev polkit-elogind-dev \
+            pulseaudio-dev py3-docutils qrcodegen-dev upower-dev \
+            wayland-dev wayland-protocols
+
+      - name: Checkout Phosh source
+        run: |
+          git clone --depth 1 --branch "$PHOSH_REF" "$PHOSH_REPO" phosh
+
+      - name: Apply JustPlugins modifications
+        run: |
+          cp -v justplugins/src/*.c justplugins/src/*.h phosh/src/
+          cp -v justplugins/src/ui/*.ui phosh/src/ui/ 2>/dev/null || true
+          cp -v justplugins/src/meson.build phosh/src/meson.build
+          cp -v justplugins/src/phosh.gresources.xml phosh/src/phosh.gresources.xml
+
+      - name: Setup Meson
+        run: |
+          cd phosh
+          meson setup ${{ env.BUILD_OPTS }} ${{ env.BUILD_DIR }}
+
+      - name: Build Phosh
+        run: |
+          cd phosh
+          meson compile -C ${{ env.BUILD_DIR }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phosh-justplugins-alpine
+          path: |
+            phosh/${{ env.BUILD_DIR }}/src/libphosh*
+            phosh/${{ env.BUILD_DIR }}/src/phosh
+            phosh/${{ env.BUILD_DIR }}/plugins/**/*.so
+          retention-days: 7
+
   lint:
     name: Code Style Check
     runs-on: ubuntu-24.04
