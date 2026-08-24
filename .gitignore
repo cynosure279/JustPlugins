@@ -1,0 +1,21 @@
+# JustPlugins .gitignore
+
+# Phosh source checkouts (downloaded during CI)
+phosh-main/
+phosh-mobile-settings-main/
+_phosh_src/
+
+# Build artifacts
+_build/
+build/
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
