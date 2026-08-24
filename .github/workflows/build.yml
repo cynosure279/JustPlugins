@@ -45,11 +45,8 @@ jobs:
           path: justplugins
 
       - name: Checkout Phosh source
-        uses: actions/checkout@v4
-        with:
-          repository: World/Phosh/phosh
-          ref: ${{ env.PHOSH_REF }}
-          path: phosh
+        run: |
+          git clone --depth 1 --branch "$PHOSH_REF" "$PHOSH_REPO" phosh
 
       - name: Apply JustPlugins modifications
         run: |
