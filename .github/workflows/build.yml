@@ -53,6 +53,8 @@ jobs:
           fi
           apt-get update -qq
           apt-get build-dep -y phosh
+          # Phosh main needs extra packages not in the Trixie package version
+          apt-get install -y -qq cmake libqrcodegen-dev libgmobile-dev
           pip3 install --upgrade meson --break-system-packages || true
           meson --version
 
