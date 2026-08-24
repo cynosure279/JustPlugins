@@ -1,39 +1,31 @@
-# APKBUILD for phosh-justplugins
-# Build Phosh with the JustPlugins plugin manager overlay
-# Compatible with Alpine Linux and postmarketOS
+# APKBUILD for justplugins (test build)
+#
+# Non-conflicting test package: installs a modified phosh binary
+# alongside the system phosh. Depends on phosh for schemas,
+# plugins, and runtime dependencies.
+#
+# Usage:
+#   abuild -r                           # build the .apk
+#   sudo apk add justplugins            # install (no conflict with phosh)
+#   sudo systemctl --user stop phosh     # stop system phosh
+#   phosh-justplugins                    # run test build
+#   # ... test the plugin manager ...
+#   sudo systemctl --user start phosh   # restore system phosh
 
-# Maintainer: JustPlugins Contributors
-pkgname=phosh-justplugins
-pkgver=0.57.0
+pkgname=justplugins
+pkgver=0.1.0
 pkgrel=0
 _overlayver=0.1.0
-pkgdesc="Wayland shell for GNOME on mobile devices - with plugin manager"
-# armhf: blocked by gnome-shell-schemas
+_phoshver=0.57.0
+pkgdesc="Phosh plugin manager - test binary for development"
 arch="all !armhf"
 url="https://github.com/cynosure279/JustPlugins"
 license="GPL-3.0-or-later"
-options="!check"  # tests need a running Wayland compositor
+options="!check"
 
-# This package replaces phosh
-provides="phosh=$pkgver-r$pkgrel"
-provider_priority=10
-conflicts="phosh"
-
-# Runtime dependencies (same as Alpine phosh package)
-depends="
-	adwaita-icon-theme
-	bash
-	dbus:org.freedesktop.Secrets
-	desktop-file-utils
-	gnome-control-center
-	gnome-session
-	gnome-settings-daemon
-	gnome-shell-schemas
-	gsettings-desktop-schemas
-	phoc
-	polkit-elogind
-	xwayland
-	"
+# Depends on system phosh: provides GSettings schemas, plugin dir,
+# GIO extension points, and all runtime deps. NO conflict.
+depends="phosh"
 
 # Build dependencies (same as Alpine phosh package)
 makedepends="
@@ -69,13 +61,11 @@ makedepends="
 # Sources:
 #   1. Phosh release tarball
 #   2. JustPlugins overlay tarball (our modifications)
-source="https://sources.phosh.mobi/releases/phosh/phosh-${pkgver/_/.}.tar.xz
+source="https://sources.phosh.mobi/releases/phosh/phosh-$_phoshver.tar.xz
 	justplugins-overlay-$_overlayver.tar.gz::https://github.com/cynosure279/JustPlugins/releases/download/v$_overlayver/justplugins-overlay-$_overlayver.tar.gz
 	"
-builddir="$srcdir/phosh-${pkgver/_/.}"
+builddir="$srcdir/phosh-$_phoshver"
 
-# Phosh release tarball checksum (from Alpine aports)
-# Overlay checksum will be filled by make-overlay.sh
 sha512sums="
 51219a3295b061047765368a0f65a02b131c4b229ec03713f547595b73a98c51b99086769bf0584dd7d44b8426b21d50162e76e955fb7a37a5136cefa253fea8  phosh-0.57.0.tar.xz
 d8d510a144638acfb49d5d8bc3de39dbae6c5216c9995bc1d273281e7aa894bbed1d80366b754b58d281d95f25f1eecfbbed9bd9a5bd38e6b352c037c42a63c8  justplugins-overlay-0.1.0.tar.gz
@@ -84,7 +74,6 @@ d8d510a144638acfb49d5d8bc3de39dbae6c5216c9995bc1d273281e7aa894bbed1d80366b754b58
 prepare() {
 	default_prepare
 
-	# Apply the JustPlugins overlay: copy our files over the phosh source
 	local overlay_dir="$srcdir/justplugins-overlay-$_overlayver"
 
 	if [ -d "$overlay_dir/src" ]; then
@@ -95,7 +84,6 @@ prepare() {
 		cp -f "$overlay_dir"/src/phosh.gresources.xml "$builddir/src/phosh.gresources.xml"
 		cp -f "$overlay_dir"/src/ui/*.ui "$builddir/src/ui/" 2>/dev/null || true
 		msg "Overlay applied successfully"
-		ls -la "$builddir"/src/plugin-*
 	else
 		error "JustPlugins overlay not found at $overlay_dir"
 		return 1
@@ -103,12 +91,14 @@ prepare() {
 }
 
 build() {
-	# Build phosh with our modifications using meson
+	# Build phosh with our modifications
+	# Standard prefix so PHOSH_PLUGINS_DIR = /usr/lib/phosh/plugins
+	# (same as system phosh — reuses existing plugins)
 	abuild-meson \
 		-Db_lto=true \
 		-Dphoc_tests=disabled \
-		-Dman=true \
-		-Dbindings-lib=true \
+		-Dman=false \
+		-Dbindings-lib=false \
 		-Dtools=true \
 		-Dtests=false \
 		-Dgtk_doc=false \
@@ -118,30 +108,28 @@ build() {
 }
 
 package() {
-	DESTDIR="$pkgdir/" meson install --no-rebuild --skip-subprojects -C output
-}
+	# Install ONLY the modified binary and library to a private location.
+	# Does NOT touch /usr/bin/phosh or /usr/lib/libphosh-*.so
+	# so there is zero conflict with the system phosh package.
 
-# Subpackages - same structure as Alpine phosh
-subpackages="
-	libphosh:libs
-	libphosh-dev:libphosh_dev
-	$pkgname-dbg
-	$pkgname-dev
-	$pkgname-doc
-	$pkgname-lang
-	$pkgname-schemas::noarch
-	$pkgname-systemd
-	"
+	install -d "$pkgdir"/usr/lib/justplugins/bin
+	install -d "$pkgdir"/usr/lib/justplugins/lib
 
-libphosh_dev() {
-	amove usr/include/libphosh-*
-	amove usr/lib/libphosh-*.so
-	amove usr/lib/pkgconfig/libphosh-*.pc
-}
+	# Copy the modified phosh binary
+	cp output/src/phosh "$pkgdir"/usr/lib/justplugins/bin/phosh-justplugins
 
-schemas() {
-	pkgdesc="$pkgdesc (schemas)"
-	depends=
+	# Copy the modified libphosh shared library (contains plugin manager code)
+	cp output/src/libphosh-*.so* "$pkgdir"/usr/lib/justplugins/lib/ 2>/dev/null || true
 
-	amove usr/share/glib-2.0/schemas
+	# Create wrapper script at /usr/bin/phosh-justplugins
+	install -d "$pkgdir"/usr/bin
+	cat > "$pkgdir"/usr/bin/phosh-justplugins << 'WRAPPER'
+#!/bin/sh
+# phosh-justplugins — run the JustPlugins test build of phosh
+# Sets LD_LIBRARY_PATH so the binary loads our modified libphosh
+# (which contains the plugin manager code) instead of the system one.
+export LD_LIBRARY_PATH="/usr/lib/justplugins/lib:$LD_LIBRARY_PATH"
+exec /usr/lib/justplugins/bin/phosh-justplugins "$@"
+WRAPPER
+	chmod +x "$pkgdir"/usr/bin/phosh-justplugins
 }
