@@ -1,0 +1,180 @@
+# JustPlugins CI/CD - Build Phosh with Plugin Manager
+#
+# This workflow builds Phosh with the JustPlugins plugin manager modifications.
+
+name: Build & Test
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      phosh_ref:
+        description: 'Phosh git ref to build against'
+        required: false
+        default: 'main'
+        type: string
+
+env:
+  PHOSH_REPO: https://gitlab.gnome.org/World/Phosh/phosh.git
+  # PHOSH_REF uses the default (main) unless workflow_dispatch provides one
+  PHOSH_REF: ${{ inputs.phosh_ref || 'main' }}
+  BUILD_DIR: _build
+  BUILD_OPTS: -Dtools=true -Dtests=false -Dgtk_doc=false -Dintrospection=false -Dman=false
+
+jobs:
+  # Build Phosh + JustPlugins on Ubuntu
+  build:
+    name: Build (Ubuntu ${{ matrix.ubuntu }})
+    runs-on: ${{ matrix.ubuntu }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # GitHub runner labels are 'ubuntu-24.04' - not just the version number
+        ubuntu: ['ubuntu-24.04']
+
+    steps:
+      - name: Checkout JustPlugins
+        uses: actions/checkout@v4
+        with:
+          path: justplugins
+
+      - name: Checkout Phosh source
+        uses: actions/checkout@v4
+        with:
+          repository: World/Phosh/phosh
+          ref: ${{ env.PHOSH_REF }}
+          path: phosh
+
+      - name: Apply JustPlugins modifications
+        run: |
+          echo "=== Applying JustPlugins modifications to Phosh ==="
+          if [ -d justplugins/src ]; then
+            cp -rv justplugins/src/*.c justplugins/src/*.h phosh/src/ 2>/dev/null || true
+          fi
+          if [ -d justplugins/src/ui ]; then
+            cp -rv justplugins/src/ui/*.ui phosh/src/ui/ 2>/dev/null || true
+          fi
+          # CRITICAL: Copy modified build system files so new sources are compiled
+          # and the new UI resource is registered.
+          if [ -f justplugins/src/meson.build ]; then
+            cp -v justplugins/src/meson.build phosh/src/meson.build
+          fi
+          if [ -f justplugins/src/phosh.gresources.xml ]; then
+            cp -v justplugins/src/phosh.gresources.xml phosh/src/phosh.gresources.xml
+          fi
+          echo "--- Modified files ---"
+          git -C phosh diff --stat || true
+          echo "--- New files ---"
+          git -C phosh ls-files --others --exclude-standard || true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            meson ninja-build \
+            libgtk-3-dev libgtk-4-dev \
+            libglib2.0-dev libgudev-1.0-dev \
+            libwayland-dev wayland-protocols \
+            libnm-dev libmm-glib-dev \
+            libupower-glib-dev libpulse-dev \
+            libpolkit-agent-1-dev libsecret-1-dev \
+            libsystemd-dev libpam0g-dev \
+            libhandy-1-dev libadwaita-1-dev \
+            libgmobile-dev libgnome-desktop-3-dev \
+            libgnome-bluetooth-3.0-dev \
+            libfeedback-dev libgcr-3-dev \
+            libfribidi-dev libjson-glib-dev \
+            libappstream-dev libecal2.0-dev \
+            libqrcodegen-dev evolution-data-server-dev \
+            gsettings-desktop-schemas-dev \
+            libsoup-3.0-dev libcallaudio-dev \
+            libxml2-utils valac \
+            python3-docutils desktop-file-utils \
+            libevince-gtk3-dev librsvg2-common \
+            dbus-daemon xvfb at-spi2-core
+
+      - name: Install additional build dependencies
+        run: |
+          sudo apt-get install -y -qq \
+            phoc 2>/dev/null || echo "phoc not available (OK for compilation only)"
+          pip3 install -q black flake8 pytest 2>/dev/null || true
+
+      - name: Setup Meson
+        run: |
+          cd phosh
+          meson setup ${{ env.BUILD_OPTS }} ${{ env.BUILD_DIR }}
+
+      - name: Build Phosh
+        run: |
+          cd phosh
+          meson compile -C ${{ env.BUILD_DIR }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phosh-justplugins-${{ matrix.ubuntu }}
+          path: |
+            phosh/${{ env.BUILD_DIR }}/src/libphosh*
+            phosh/${{ env.BUILD_DIR }}/src/phosh
+            phosh/${{ env.BUILD_DIR }}/plugins/**/*.so
+          retention-days: 7
+
+  # Code style check
+  lint:
+    name: Code Style Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout JustPlugins
+        uses: actions/checkout@v4
+        with:
+          path: justplugins
+
+      - name: Check C source files
+        run: |
+          echo "=== Checking C source files ==="
+          find justplugins -name '*.c' -o -name '*.h' | while read f; do
+            echo "Checking: $f"
+            if ! grep -q 'Copyright' "$f" 2>/dev/null; then
+              echo "WARNING: $f missing copyright header"
+            fi
+            if ! grep -q 'SPDX-License-Identifier' "$f" 2>/dev/null; then
+              echo "WARNING: $f missing SPDX license identifier"
+            fi
+            if grep -Pn '^ +' "$f" | head -3 | grep -q .; then
+              echo "WARNING: $f may use spaces instead of tabs for indentation"
+            fi
+          done
+
+  # Validate project structure
+  validate:
+    name: Structure Validation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate project structure
+        run: |
+          echo "=== Project Structure ==="
+          find . -type f -not -path './.git/*' -not -path './phosh-main/*' -not -path './phosh-mobile-settings-main/*' | sort
+          echo ""
+          echo "=== Plan check ==="
+          if [ -f plan.md ]; then
+            echo "plan.md exists"
+            wc -l plan.md
+          else
+            echo "plan.md missing"
+            exit 1
+          fi
+          echo ""
+          echo "=== GitHub Actions check ==="
+          if [ -f .github/workflows/build.yml ]; then
+            echo "Workflow exists"
+          fi
