@@ -83,7 +83,7 @@ jobs:
             libpolkit-agent-1-dev libsecret-1-dev \
             libsystemd-dev libpam0g-dev \
             libhandy-1-dev libadwaita-1-dev \
-            libgmobile-dev libgnome-desktop-3-dev \
+            libgnome-desktop-3-dev \
             libgnome-bluetooth-3.0-dev \
             libfeedback-dev libgcr-3-dev \
             libfribidi-dev libjson-glib-dev \
@@ -93,7 +93,7 @@ jobs:
             libsoup-3.0-dev libcallaudio-dev \
             libxml2-utils valac \
             python3-docutils desktop-file-utils \
-            libevince-gtk3-dev librsvg2-common \
+            libevince-dev librsvg2-common \
             dbus-daemon xvfb at-spi2-core
 
       - name: Install additional build dependencies
