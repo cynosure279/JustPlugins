@@ -1,0 +1,22 @@
+--- phosh-main/src/meson.build	2026-08-23 06:30:59.000000000 +0800
++++ src/meson.build	2026-08-24 14:38:14.564329982 +0800
+@@ -171,6 +171,9 @@
+   'password-entry.h',
+   'phosh-wayland.h',
+   'plugin-loader.h',
++  'plugin-info.h',
++  'plugin-manager.h',
++  'plugin-manager-page.h',
+   'power-menu-manager.h',
+   'power-menu.h',
+   'quick-settings-box.h',
+@@ -261,6 +264,9 @@
+   'password-entry.c',
+   'phosh-wayland.c',
+   'plugin-loader.c',
++  'plugin-info.c',
++  'plugin-manager.c',
++  'plugin-manager-page.c',
+   'power-menu-manager.c',
+   'power-menu.c',
+   'quick-setting.c',

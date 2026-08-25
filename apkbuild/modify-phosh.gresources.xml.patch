@@ -1,0 +1,10 @@
+--- phosh-main/src/phosh.gresources.xml	2026-08-23 06:30:59.000000000 +0800
++++ src/phosh.gresources.xml	2026-08-24 14:36:49.375646221 +0800
+@@ -35,6 +35,7 @@
+     <file preprocess="xml-stripblanks">ui/quick-setting.ui</file>
+     <file preprocess="xml-stripblanks">ui/quick-settings-box.ui</file>
+     <file preprocess="xml-stripblanks">ui/quick-settings.ui</file>
++    <file preprocess="xml-stripblanks">ui/plugin-manager-page.ui</file>
+     <file preprocess="xml-stripblanks">ui/revealer.ui</file>
+     <file preprocess="xml-stripblanks">ui/run-command-dialog.ui</file>
+     <file preprocess="xml-stripblanks">ui/settings.ui</file>

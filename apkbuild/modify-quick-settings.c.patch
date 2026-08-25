@@ -1,0 +1,123 @@
+--- phosh-main/src/quick-settings.c	2026-08-23 06:30:59.000000000 +0800
++++ src/quick-settings.c	2026-08-24 14:39:05.692655679 +0800
+@@ -1,9 +1,11 @@
+ /*
+  * Copyright (C) 2024 Tether Operations Limited
++ *               2026 The Phosh Developers
+  *
+  * SPDX-License-Identifier: GPL-3.0-or-later
+  *
+  * Author: Arun Mani J <arun.mani@tether.to>
++ *         JustPlugins Contributors
+  */
+ 
+ #define G_LOG_DOMAIN "phosh-quick-settings"
+@@ -15,33 +17,29 @@
+ #include "bt-status-page.h"
+ #include "feedback-status-page.h"
+ #include "plugin-loader.h"
++#include "plugin-manager.h"
++#include "plugin-manager-page.h"
+ #include "quick-setting.h"
+ #include "quick-settings-box.h"
+ #include "shell-priv.h"
++#include "status-page.h"
+ #include "wifi-status-page.h"
+ 
+ #define CUSTOM_QUICK_SETTINGS_SCHEMA "sm.puri.phosh.plugins"
+ #define CUSTOM_QUICK_SETTINGS_KEY "quick-settings"
+-
+-/**
+- * PhoshQuickSettings:
+- *
+- * A widget to display quick-settings using PhoshQuickSettingsBox.
+- *
+- * `PhoshQuickSettings` holds the default quick-settings and those loaded as plugins. It manages
+- * their interaction with user by launching appropriate actions.
+- *
+- * For example, tapping a Wi-Fi quick-setting would toggle its off/on state. Long pressing a
+- * rotation quick-setting would change the rotation configuration.
+- */
++#define MANAGE_PLUGINS_PAGE_ID "manage-plugins"
+ 
+ struct _PhoshQuickSettings {
+   GtkBin parent;
+ 
+   PhoshQuickSettingsBox *box;
++  GtkStack             *stack;
++  GtkWidget            *manage_btn;
++  GtkWidget            *manage_page;
+ 
+   GSettings *plugin_settings;
+   PhoshPluginLoader *plugin_loader;
++  PhoshPluginManager *plugin_manager;
+   GPtrArray *custom_quick_settings;
+ };
+ 
+@@ -49,6 +47,22 @@
+ 
+ 
+ static void
++on_manage_plugins_clicked (PhoshQuickSettings *self)
++{
++  g_debug ("Opening plugin manager page");
++  gtk_stack_set_visible_child_name (self->stack, MANAGE_PLUGINS_PAGE_ID);
++}
++
++
++static void
++on_back_clicked (PhoshQuickSettings *self)
++{
++  g_debug ("Closing plugin manager page");
++  gtk_stack_set_visible_child_name (self->stack, "settings");
++}
++
++
++static void
+ on_wwan_clicked (PhoshQuickSettings *self, PhoshQuickSetting *child)
+ {
+   PhoshShell *shell = phosh_shell_get_default ();
+@@ -254,6 +268,7 @@
+ {
+   PhoshQuickSettings *self = PHOSH_QUICK_SETTINGS (object);
+ 
++  g_clear_object (&self->plugin_manager);
+   g_clear_object (&self->plugin_settings);
+   g_clear_object (&self->plugin_loader);
+   if (self->custom_quick_settings) {
+@@ -275,6 +290,7 @@
+ 
+   g_type_ensure (PHOSH_TYPE_QUICK_SETTINGS_BOX);
+   g_type_ensure (PHOSH_TYPE_QUICK_SETTING);
++  g_type_ensure (PHOSH_TYPE_PLUGIN_MANAGER_PAGE);
+ 
+   g_type_ensure (PHOSH_TYPE_BT_STATUS_PAGE);
+   g_type_ensure (PHOSH_TYPE_FEEDBACK_STATUS_PAGE);
+@@ -284,7 +300,11 @@
+                                                "/mobi/phosh/ui/quick-settings.ui");
+ 
+   gtk_widget_class_bind_template_child (widget_class, PhoshQuickSettings, box);
++  gtk_widget_class_bind_template_child (widget_class, PhoshQuickSettings, stack);
++  gtk_widget_class_bind_template_child (widget_class, PhoshQuickSettings, manage_btn);
+ 
++  gtk_widget_class_bind_template_callback (widget_class, on_manage_plugins_clicked);
++  gtk_widget_class_bind_template_callback (widget_class, on_back_clicked);
+   gtk_widget_class_bind_template_callback (widget_class, on_wwan_clicked);
+   gtk_widget_class_bind_template_callback (widget_class, on_wifi_clicked);
+   gtk_widget_class_bind_template_callback (widget_class, on_bt_clicked);
+@@ -309,6 +329,15 @@
+                           self->box, "can-show-status",
+                           G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
+ 
++  self->plugin_manager = phosh_plugin_manager_new ();
++
++  /* Create the plugin manager page and add it to the stack */
++  self->manage_page = phosh_plugin_manager_page_new (self->plugin_manager);
++  gtk_widget_set_visible (self->manage_page, TRUE);
++  g_signal_connect_swapped (self->manage_page, "back-clicked",
++                            G_CALLBACK (on_back_clicked), self);
++  gtk_stack_add_named (self->stack, self->manage_page, MANAGE_PLUGINS_PAGE_ID);
++
+   self->plugin_settings = g_settings_new (CUSTOM_QUICK_SETTINGS_SCHEMA);
+   self->plugin_loader = phosh_plugin_loader_new ((GStrv) plugin_dirs,
+                                                  PHOSH_EXTENSION_POINT_QUICK_SETTING_WIDGET);

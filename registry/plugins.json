@@ -1,0 +1,76 @@
+{
+  "plugins": [
+    {
+      "id": "caffeine-quick-setting",
+      "name": "Caffeine",
+      "description": "Keep the screen awake temporarily",
+      "icon": "caffeine-quick-setting-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "pomodoro-quick-setting",
+      "name": "Pomodoro Timer",
+      "description": "Productivity timer with work/break cycles",
+      "icon": "pomodoro-active-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "ticket-box",
+      "name": "Ticket Box",
+      "description": "Show tickets and boarding passes as quick-setting",
+      "icon": "ticket-box-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "upcoming-events",
+      "name": "Upcoming Events",
+      "description": "Show calendar events in quick settings",
+      "icon": "upcoming-events-all-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "wifi-hotspot-quick-setting",
+      "name": "WiFi Hotspot",
+      "description": "Share your internet via WiFi hotspot",
+      "icon": "wifi-hotspot-quick-setting-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "location-quick-setting",
+      "name": "Location",
+      "description": "Toggle GPS location sharing",
+      "icon": "location-quick-setting-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "scaling-quick-setting",
+      "name": "Screen Scaling",
+      "description": "Adjust display scaling factor",
+      "icon": "screen-scaling-large-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    },
+    {
+      "id": "syncthing-quick-setting",
+      "name": "Syncthing",
+      "description": "Control Syncthing file sync",
+      "icon": "cloud-filled-symbolic",
+      "type": "quick-setting",
+      "version": "0.57.0",
+      "download_url": ""
+    }
+  ]
+}

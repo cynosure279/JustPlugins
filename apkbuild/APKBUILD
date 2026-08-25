@@ -1,33 +1,35 @@
-# APKBUILD for justplugins (test build)
+# Maintainer: JustPlugins Contributors
+# Contributor: Cynosure <cynosure279@users.noreply.github.com>
 #
-# Non-conflicting test package: installs a modified phosh binary
-# alongside the system phosh. Depends on phosh for schemas,
-# plugins, and runtime dependencies.
+# This is an overlay package that builds Phosh with the JustPlugins
+# plugin manager feature. It replaces the stock phosh package.
 #
-# Usage:
-#   abuild -r                           # build the .apk
-#   sudo apk add justplugins            # install (no conflict with phosh)
-#   sudo systemctl --user stop phosh     # stop system phosh
-#   phosh-justplugins                    # run test build
-#   # ... test the plugin manager ...
-#   sudo systemctl --user start phosh   # restore system phosh
+# Build:  abuild -r
+# Install: apk add phosh-justplugins
 
-pkgname=justplugins
-pkgver=0.1.0
+maintainer="JustPlugins Contributors <cynosure279@users.noreply.github.com>"
+pkgname=phosh-justplugins
+pkgver=0.57.0
 pkgrel=0
-_overlayver=0.1.0
-_phoshver=0.57.0
-pkgdesc="Phosh plugin manager - test binary for development"
+pkgdesc="Wayland shell for GNOME on mobile devices (with JustPlugins plugin manager)"
+# armhf: blocked by gnome-shell-schemas
 arch="all !armhf"
 url="https://github.com/cynosure279/JustPlugins"
-license="GPL-3.0-or-later"
-options="!check"
+license="GPL-3.0-only"
+provides="phosh=$pkgver"
+conflicts="phosh"
 
-# Depends on system phosh: provides GSettings schemas, plugin dir,
-# GIO extension points, and all runtime deps. NO conflict.
-depends="phosh"
-
-# Build dependencies (same as Alpine phosh package)
+# Same runtime deps as stock phosh
+depends="
+	$pkgname-schemas
+	adwaita-icon-theme
+	dbus:org.freedesktop.Secrets
+	desktop-file-utils
+	gnome-shell-schemas
+	gsettings-desktop-schemas
+	phoc
+	polkit-elogind
+	"
 makedepends="
 	callaudiod-dev
 	elogind-dev
@@ -58,78 +60,64 @@ makedepends="
 	wayland-protocols
 	"
 
-# Sources:
-#   1. Phosh release tarball
-#   2. JustPlugins overlay tarball (our modifications)
-source="https://sources.phosh.mobi/releases/phosh/phosh-$_phoshver.tar.xz
-	justplugins-overlay-$_overlayver.tar.gz::https://github.com/cynosure279/JustPlugins/releases/download/v$_overlayver/justplugins-overlay-$_overlayver.tar.gz
+subpackages="
+	$pkgname-dbg
+	$pkgname-dev
+	$pkgname-lang
+	$pkgname-schemas::noarch
 	"
-builddir="$srcdir/phosh-$_phoshver"
 
+# Source 1: phosh release tarball
+# Source 2: JustPlugins overlay (new source files)
+# Sources 3+: patches for modified phosh files
+source="https://sources.phosh.mobi/releases/phosh/phosh-0.57.0.tar.xz
+	justplugins-overlay.tar.gz
+	modify-quick-settings.c.patch
+	modify-quick-settings.ui.patch
+	modify-meson.build.patch
+	modify-phosh.gresources.xml.patch
+	"
+builddir="$srcdir/phosh-0.57.0"
+
+# sha512sums will be filled by 'abuild checksum'
 sha512sums="
 51219a3295b061047765368a0f65a02b131c4b229ec03713f547595b73a98c51b99086769bf0584dd7d44b8426b21d50162e76e955fb7a37a5136cefa253fea8  phosh-0.57.0.tar.xz
-1133e037f851e39d56d973987031abfddac9f344419f7fac7935cdbe955856110a6e12c2dedb0bb72f459807f140ebafe82d90d7a9092b2b612b5295e58a769f  justplugins-overlay-0.1.0.tar.gz
-	"
+8b5c2d385f3e444be35a1e3e41af1769484ad598b7c869e85edc4ad856c39822032c63082fd36edb95fd1e90286e3f438b15f24d17c6814a78095cb8b488d695  justplugins-overlay.tar.gz
+186f41a6b8036cb23488792e1b4ad9eefc7f79feae807539da4961080cbcac784b514f570a9da8534c42e906585c272c3d5965bbcd008230fd51d59ae33af55b  modify-meson.build.patch
+683642a35115768c3063d9ee1f481c1e197a5e634bd4d791da82b38cda47551217ac88b90798975534133155b072ccbf3ea8804310cb8148590594c5db7f28a4  modify-phosh.gresources.xml.patch
+4ac4611e78dd827e0d54a993435029132a24a291a346e97f22646ff043a4bf0fd732ef5f6e5032eb54eea7e5720574f489bceec9c64c39fb548d414029a46ea9  modify-quick-settings.c.patch
+cf91119b1dd9202820b8d3b4ff9fe195bd7f43036310334546faa8fb22839c96d7f410ec3470c6ea819f95221721705de46d3e40d00d3b4400f04a0bc1724abe  modify-quick-settings.ui.patch
+"
 
 prepare() {
 	default_prepare
-
-	local overlay_dir="$srcdir/justplugins-overlay-$_overlayver"
-
-	if [ -d "$overlay_dir/src" ]; then
-		msg "Applying JustPlugins overlay..."
-		cp -f "$overlay_dir"/src/*.c "$builddir/src/"
-		cp -f "$overlay_dir"/src/*.h "$builddir/src/"
-		cp -f "$overlay_dir"/src/meson.build "$builddir/src/meson.build"
-		cp -f "$overlay_dir"/src/phosh.gresources.xml "$builddir/src/phosh.gresources.xml"
-		cp -f "$overlay_dir"/src/ui/*.ui "$builddir/src/ui/" 2>/dev/null || true
-		msg "Overlay applied successfully"
-	else
-		error "JustPlugins overlay not found at $overlay_dir"
-		return 1
-	fi
+	# Copy JustPlugins overlay (new source files) into phosh source tree
+	cp -v "$srcdir"/src/plugin-info.c "$builddir"/src/
+	cp -v "$srcdir"/src/plugin-info.h "$builddir"/src/
+	cp -v "$srcdir"/src/plugin-manager.c "$builddir"/src/
+	cp -v "$srcdir"/src/plugin-manager.h "$builddir"/src/
+	cp -v "$srcdir"/src/plugin-manager-page.c "$builddir"/src/
+	cp -v "$srcdir"/src/plugin-manager-page.h "$builddir"/src/
+	cp -v "$srcdir"/src/ui/plugin-manager-page.ui "$builddir"/src/ui/
 }
 
 build() {
-	# Build phosh with our modifications
-	# Standard prefix so PHOSH_PLUGINS_DIR = /usr/lib/phosh/plugins
-	# (same as system phosh — reuses existing plugins)
-	abuild-meson \
-		-Db_lto=true \
-		-Dphoc_tests=disabled \
-		-Dman=false \
-		-Dbindings-lib=false \
-		-Dtools=true \
-		-Dtests=false \
-		-Dgtk_doc=false \
-		-Dintrospection=false \
-		. output
+	# phoc tests need a running Wayland compositor
+	abuild-meson 		-Db_lto=true 		-Dphoc_tests=disabled 		-Dman=true 		-Dtests=false 		-Dgtk_doc=false 		-Dintrospection=false 		. output
 	meson compile -C output
 }
 
+check() {
+	# Skip tests (disabled above)
+	:
+}
+
 package() {
-	# Install ONLY the modified binary and library to a private location.
-	# Does NOT touch /usr/bin/phosh or /usr/lib/libphosh-*.so
-	# so there is zero conflict with the system phosh package.
+	DESTDIR="$pkgdir/" meson install --no-rebuild --skip-subprojects -C output
+}
 
-	install -d "$pkgdir"/usr/lib/justplugins/bin
-	install -d "$pkgdir"/usr/lib/justplugins/lib
-
-	# Copy the modified phosh binary
-	cp output/src/phosh "$pkgdir"/usr/lib/justplugins/bin/phosh-justplugins
-
-	# Copy the modified libphosh shared library (contains plugin manager code)
-	cp output/src/libphosh-*.so* "$pkgdir"/usr/lib/justplugins/lib/ 2>/dev/null || true
-
-	# Create wrapper script at /usr/bin/phosh-justplugins
-	install -d "$pkgdir"/usr/bin
-	cat > "$pkgdir"/usr/bin/phosh-justplugins << 'WRAPPER'
-#!/bin/sh
-# phosh-justplugins — run the JustPlugins test build of phosh
-# Sets LD_LIBRARY_PATH so the binary loads our modified libphosh
-# (which contains the plugin manager code) instead of the system one.
-export LD_LIBRARY_PATH="/usr/lib/justplugins/lib:$LD_LIBRARY_PATH"
-exec /usr/lib/justplugins/bin/phosh-justplugins "$@"
-WRAPPER
-	chmod +x "$pkgdir"/usr/bin/phosh-justplugins
+schemas() {
+	pkgdesc="$pkgdesc (schemas)"
+	depends=
+	amove usr/share/glib-2.0/schemas
 }
