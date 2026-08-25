@@ -22,7 +22,7 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/justplugins-overlay/src/ui"
 cp "$PROJECT_DIR"/src/*.c "$STAGE/justplugins-overlay/src/"
 cp "$PROJECT_DIR"/src/*.h "$STAGE/justplugins-overlay/src/"
-cp "$PROJECT_DIR"/src/*.ui "$STAGE/justplugins-overlay/src/ui/" 2>/dev/null || true
+cp "$PROJECT_DIR"/src/ui/*.ui "$STAGE/justplugins-overlay/src/ui/" 2>/dev/null || true
 cp "$PROJECT_DIR"/src/meson.build "$STAGE/justplugins-overlay/src/"
 cp "$PROJECT_DIR"/src/phosh.gresources.xml "$STAGE/justplugins-overlay/src/"
 
